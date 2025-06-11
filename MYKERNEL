@@ -1,77 +1,86 @@
 #
-# MYKERNEL -- Оптимизированное ядро для быстрой загрузки
-# Основано на GENERIC, с отключением ненужных компонентов.
+# MYKERNEL -- Минимальное, но полностью рабочее ядро
+# Построено по принципу «include GENERIC», а затем отключаем всё лишнее.
+# Такой приём гарантирует, что не потеряются скрытые зависимости,
+# и при этом сборка идёт быстрее, чем у полноценного GENERIC.
 #
 
-options         BOOTWAIT=3              # Уменьшенное время ожидания загрузочного меню
-options         AUTOBTN_TIMEOUT=1       # Быстрая реакция на кнопку загрузки
+include         GENERIC          # берём базовую конфигурацию
+ident           MYKERNEL         # имя ядра в строке uname
 
-cpu             HAMMER
-ident           MYKERNEL
+#-----------------------------
+# 1. Оптимизация времени сборки / размера
+#-----------------------------
+makeoptions     WITHOUT_KERNEL_SYMBOLS=yes   # не сохранять символы (.debug)
+makeoptions     WITH_CTF=1                   # Сохраняем CTF для DTrace (почти даром)
+options         BOOTWAIT=3                   # Меню загрузчика ждёт 3 с вместо 10 с
 
-makeoptions     DEBUG=-g                # Отладочные символы (опционально)
-makeoptions     WITH_CTF=1              # Поддержка DTrace
+#-----------------------------
+# 2. Отключаем отладочные проверки
+#-----------------------------
+nooptions       WITNESS
+nooptions       WITNESS_SKIPSPIN
+nooptions       INVARIANTS
+nooptions       INVARIANT_SUPPORT
+nooptions       DIAGNOSTIC
+nooptions       KDTRACE_HOOKS
+nooptions       DDB
+nooptions       KDB
+nooptions       GDB
 
-options         SCHED_ULE               # Планировщик ULE
-options         PREEMPTION              # Прерывание потоков ядра
-options         INET                    # Сетевая поддержка IPv4
-options         INET6                   # IPv6 (оставить, если нужно)
-options         FFS                     # Файловая система UFS
-options         SOFTUPDATES             # Оптимизация для UFS
-options         UFS_DIRHASH             # Ускорение работы с каталогами
-options         MD_ROOT                 # Использовать RAM-диск как корень
-options         TMPFS                   # Файловая система в оперативной памяти
-options         GEOM_LABEL              # Метки на дисках
-options         COMPAT_FREEBSD32        # Совместимость с 32-битными приложениями
+#-----------------------------
+# 3. Выкидываем редкие подсистемы
+#-----------------------------
+nooptions       NFSCL           # клиент NFS
+nooptions       NFSLOCKD
+nooptions       NFS_ROOT
+nooptions       AUDIT           # аудит
+nooptions       MAC             # мандатные политики
 
-# Отключено для ускорения загрузки:
-#options        CD9660                  # Отключено: поддержка CD/DVD
-#options        MSDOSFS                 # Отключено: файловая система FAT
-#options        NFS                     # Отключено: клиент NFS
-#options        AUDIT                   # Отключено: аудит безопасности
-#options        MAC                     # Отключено: мандатная политика доступа
+#-----------------------------
+# 4. Удаляем устаревшее и ненужное железо
+#-----------------------------
+nodevice        fdc             # floppy
+nodevice        ppc             # параллельный порт
+nodevice        ppi
+nodevice        ppbus
+nodevice        sppp            # Serial PPP
+nodevice        sound           # вся аудиоподсистема
+nodevice        snd             # все звуковые драйверы
 
-# Отключено устаревшее оборудование:
-#device         isa                     # Отключено: шина ISA
-#device         scbus                   # Отключено: SCSI-шина
-#device         ahc                     # Отключено: контроллер AHA2940 SCSI
-#device         fdc                     # Отключено: дисковод для гибких дисков
-#device         ppc                     # Отключено: параллельный порт
-#device         sound                   # Отключено: звуковая подсистема
+# Wi‑Fi и Bluetooth (если не нужны)
+nodevice        wlan
+nodevice        wlan_wep
+nodevice        wlan_ccmp
+nodevice        wlan_tkip
+nodevice        an
+nodevice        ath
+nodevice        bwi
+nodevice        bwn
+nodevice        ipw
+nodevice        iwi
+nodevice        iwn
+nodevice        ral
+nodevice        rum
+nodevice        run
+nodevice        ural
+nodevice        wi
+nodevice        usb_ether
+nodevice        usb_wlan
 
-# Сетевые драйверы (оставлено только необходимое):
-device          em                      # Intel Gigabit Ethernet
-#device         wlan                    # Отключено: Wi-Fi
-#device         ath                     # Отключено: Atheros Wi-Fi
+#-----------------------------
+# 5. Минимум из USB
+#-----------------------------
+# Если USB не нужен совсем, раскомментируйте строки ниже
+nodevice       usb
+nodevice       uhci
+nodevice       ehci
+nodevice       xhci
+nodevice       usb_template
+nodevice       usb_quirk
 
-# Отключены отладочные возможности:
-#options        KDB                     # Отключено: отладчик ядра
-#options        DDB                     # Отключено: встроенный отладчик
-#options        INVARIANTS              # Отключено: проверки целостности
-
-# Виртуализация (оставить, если используется):
-#device         virtio                  # Отключено: поддержка VirtIO
-#device         hyperv                  # Отключено: поддержка Hyper-V
-
-# Поддержка PCI/USB:
-device          acpi
-device          pci
-device          uhci                    # USB 1.1
-device          ehci                    # USB 2.0
-device          xhci                    # USB 3.0
-
-# Поддержка файловых систем и дисков:
-device          ahci                    # SATA
-device          nvme                    # NVMe
-device          da                      # SCSI-диски
-
-# Псевдоустройства:
-device          loop                    # Петлевое устройство
-device          random                  # Генератор случайных чисел
-device          ether                   # Ethernet
-device          firmware                # Прошивка
-
-# Отключены дополнительные возможности:
-#device         wifi                    # Отключено: стек Wi-Fi
-#device         usbhid                  # Отключено: USB HID устройства
-#device         crypto                  # Отключено: криптография (если не нужна)
+#-----------------------------
+# 6. Сеть
+#-----------------------------
+device          iflib           # зависимость для em
+device          em              # Intel Gigabit (e1000)
